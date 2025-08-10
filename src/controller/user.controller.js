@@ -7,26 +7,31 @@ import { ApiResponse } from "../utils/ApiResponse.js"
 const registerUser = asyncHandler(async (req, res) => {
     //get the user from frontend
     const { username, fullname, email, password } = req.body;
-    console.log(username, fullname, email, password);
+    // console.log(username, fullname, email, password);
 
     // validation
     if ([username, email, fullname, password].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "All fields are required")
     }
 
+    // normalize for duplicate checks (avoid case-sensitivity causing duplicates)
+    const normalizedUsername = username.toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
+
     // if (!fullname) {
     //     throw new ApiError(400, "fullname is not provided")
     // }
 
-
     // check if already exist
-    const existedUser = User.findOne({
-        $or: [{ username }, { email }]
+    const existedUser = await User.findOne({
+        $or: [{ username: normalizedUsername }, { email: normalizedEmail }]
     })
-    if (existedUser) return ApiError(409, "User Already exist")
+    if (existedUser) throw new ApiError(409, "User Already exist") // <-- throw instead of return
+
     // check for images and check for avatar
-    const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    // console.log('req.files:', req.files); // debug: ensure multer saved files
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
+    const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "avatar file is require")
@@ -34,18 +39,20 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // we will upload to cloudinary
     const avatarCloudinaryUrl = await uploadOnCloudinary(avatarLocalPath)
-    const coverImageCloudinaryUrl = await uploadOnCloudinary(coverImageLocalPath)
+    // Only try to upload cover if client actually sent one; else keep it null
+    const coverImageCloudinaryUrl = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
+    // console.log(avatarCloudinaryUrl);
 
     if (!avatarCloudinaryUrl) throw new ApiError(400, "Avatar not upload correectly");
 
     // create user  object- call for creation call in DB
     const user = await User.create({
         fullname,
-        avatar: avatarCloudinaryUrl.url,
-        coverImage: coverImageCloudinaryUrl?.url || "",
-        email,
+        avatar: avatarCloudinaryUrl.secure_url || avatarCloudinaryUrl.url,
+        coverImage: coverImageCloudinaryUrl ? (coverImageCloudinaryUrl.secure_url || coverImageCloudinaryUrl.url) : "",
+        email: normalizedEmail,
         password,
-        username: username.toLowerCase()
+        username: normalizedUsername
     })
 
     // remove the password from res
