@@ -244,6 +244,55 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
 })
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    const { username } = req.params;
+    if (!username?.trim()) throw new ApiError(400, "username is required")
+    const channel = User.aggregate([{
+        $match: { username: username?.toLowerCase() }
+
+    }, {
+        $lookup: {
+            from: "subcriptions",
+            localField: "_id",
+            foreignField: "channel",
+            as: "subcribers"
+        }
+    }, {
+        $lookup: {
+            from: "subcriptions",
+            localField: "_id",
+            foreignField: "subscriber",
+            as: "subscribedTo"
+        }
+    }, {
+        $addFields: {
+            subcribersCount: { $size: "$subcribers" },
+            channelsSubscribedToCount: { $size: "$subscribedTo" },
+            isSubscribed: {
+                $cond: {
+                    if: { $in: [req.user?._id, "$subcribers.subscriber"] },
+                    then: true,
+                    else: false
+                }
+            }
+        }
+    }, {
+        $project: {
+            fullname: 1,
+            username: 1,
+            subcribersCount: 1,
+            channelsSubscribedToCount: 1,
+            isSubscribed: 1,
+            avatar: 1,
+            coverImage: 1,
+            email: 1,
+        }
+    }])
+    console.log(channel);
+    if (!channel || channel.length === 0) throw new ApiError(404, "Channel not found")
+    return res.status(200).json(new ApiResponse(200, channel[0], "Channel profile fetched successfully"))
+})
+
 export {
-    registerUser, login, logout, refreshAccessToken, currentUserPassword, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage
+    registerUser, login, logout, refreshAccessToken, currentUserPassword, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage, getUserChannelProfile
 }
