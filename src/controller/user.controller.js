@@ -1,9 +1,11 @@
 import { asyncHandler } from '../utils/asyncHandler.js'
 import ApiError from '../utils/ApiError.js';
 import { User } from "../models/user.model.js"
+import { Video } from "../models/video.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 const registerUser = asyncHandler(async (req, res) => {
     //get the user from frontend
@@ -63,9 +65,17 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Something went wrong while registering the user")
     }
     // return res
-    return res.status(201).json(
-        new ApiResponse(201, createdUser, "User Register Succeefully")
-    )
+    const accessToken = await user.generteAccessToken(user._id)
+    const refreshToken = await user.generteRefreshToken(user._id)
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false })
+
+    const options = { httpOnly: true, secure: true }
+
+    return res.status(201)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(new ApiResponse(201, { user: createdUser, accessToken, refreshToken }, "User Register Successfully"))
 
 })
 
@@ -101,10 +111,7 @@ const login = asyncHandler(async (req, res) => {
     gotuser.refreshToken = refreshToken;
     await gotuser.save({ validateBeforeSave: false })
 
-    const options = {
-        httpOnly: true,
-        secure: true
-    }
+    const options = { httpOnly: true, secure: true }
 
     return res.status(200)
         .cookie("accessToken", accessToken, options)
@@ -218,6 +225,29 @@ const updateAccountDetail = asyncHandler(async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, user, "Account details updated successfully"));
 
+})
+
+const getUserProfileById = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    if (!userId) throw new ApiError(400, "userId is required");
+    const user = await User.findById(userId).select("-password -refreshToken");
+    if (!user) throw new ApiError(404, "User not found");
+    return res.status(200).json(new ApiResponse(200, user, "User profile fetched"));
+})
+
+const getUserUploadedVideos = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    if (!userId) throw new ApiError(400, "userId is required");
+    const page = parseInt(req.query.page || "1", 10);
+    const limit = parseInt(req.query.limit || "10", 10);
+    const skip = (page - 1) * limit;
+
+    const [videos, total] = await Promise.all([
+        Video.find({ owner: userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+        Video.countDocuments({ owner: userId })
+    ])
+
+    return res.status(200).json(new ApiResponse(200, { items: videos, page, limit, total }, "User videos fetched"));
 })
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
@@ -347,5 +377,5 @@ const getWatchHistory = asyncHandler(async (req, res) => {
 
 })
 export {
-    registerUser, login, logout, refreshAccessToken, currentUserPassword, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage, getUserChannelProfile, getWatchHistory, changecurrentUserPassword
+    registerUser, login, logout, refreshAccessToken, currentUserPassword, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage, getUserChannelProfile, getWatchHistory, changecurrentUserPassword, getUserProfileById, getUserUploadedVideos
 }

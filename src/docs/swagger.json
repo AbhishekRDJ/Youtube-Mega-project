@@ -1,0 +1,45 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "YouTube Mega Project API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "/api/v1" }
+  ],
+  "paths": {
+    "/videos": {
+      "get": {
+        "summary": "Get all videos",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": {"type": "integer"}},
+          { "in": "query", "name": "limit", "schema": {"type": "integer"}}
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/videos/{id}": {
+      "get": {
+        "summary": "Get video by id",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": { "200": { "description": "OK" }, "404": {"description": "Not Found"} }
+      }
+    },
+    "/videos/{id}/comments": {
+      "get": {"summary": "Get comments", "responses": {"200": {"description": "OK"}}},
+      "post": {"summary": "Add comment", "responses": {"201": {"description": "Created"}, "401": {"description": "Unauthorized"}}}
+    },
+    "/videos/upload": {
+      "post": {"summary": "Upload video", "responses": {"201": {"description": "Created"}, "401": {"description": "Unauthorized"}}}
+    },
+    "/subscriptions/plans": {"get": {"summary": "Get plans", "responses": {"200": {"description": "OK"}}}},
+    "/subscriptions/subscribe": {"post": {"summary": "Subscribe", "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}}}},
+    "/subscriptions/status": {"get": {"summary": "Subscription status", "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}}}},
+    "/users/{userId}": {"get": {"summary": "Get user profile", "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}}}},
+    "/users/{userId}/videos": {"get": {"summary": "Get user videos", "responses": {"200": {"description": "OK"}}}}
+  }
+}
+
+

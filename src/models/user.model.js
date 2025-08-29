@@ -52,17 +52,17 @@ userSchema.methods.ispasswordCorrect = async function (password) {
 
 }
 userSchema.methods.generteAccessToken = async function (params) {
-    jwt.sign({
+    return jwt.sign({
         _id: this._id,
         email: this.email,
         username: this.username,
         fullname: this.fullname
-    }, process.env.Access_TOKEN_SCRET, {
+    }, process.env.ACCESS_TOKEN_SCRET, {
         expiresIn: process.env.ACCESS_TOKEN_SCRET_EXPIRY
     })
 }
 userSchema.methods.generteRefreshToken = async function (params) {
-    jwt.sign({
+    return jwt.sign({
         _id: this._id,
 
     }, process.env.REFRESH_TOKEN_SCRET, {
