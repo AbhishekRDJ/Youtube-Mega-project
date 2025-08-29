@@ -175,6 +175,22 @@ const currentUserPassword = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, {}, "password change successfully"))
 });
 
+const changecurrentUserPassword = asyncHandler(async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+        throw new ApiError(400, "old password and new password are required")
+    }
+
+    const user = await User.findById(req.user?._id)
+    const ispasswordcorrect = await user.ispasswordCorrect(oldPassword);
+
+    if (!ispasswordcorrect) throw new ApiError(400, "invalid old password");
+
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json(new ApiResponse(200, {}, "password change successfully"))
+});
 
 const getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, req.user, "Current user fetched successfully"))
@@ -293,6 +309,43 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, channel[0], "Channel profile fetched successfully"))
 })
 
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = await User.aggregate([{
+        $match: { _id: new mongoose.Types.ObjectId(req.user?._id) }
+    }, {
+        $lookup: {
+            from: "videos",
+            localField: "watchHistory",
+            foreignField: "_id",
+            as: "watchHistory",
+            pipeline: [{
+                $lookup: {
+                    from: "users",
+                    localField: "owner",
+                    foreignField: "_id",
+                    as: "owner",
+                    pipeline: [{
+                        $project: {
+                            fullname: 1,
+                            username: 1,
+                            avatar: 1
+                        }
+                    }]
+                }
+
+            }, {
+                $addFields: {
+                    owner: {
+                        $first: "$owner"
+                    }
+                }
+            }]
+        }
+    }])
+    res.status(200).json(new ApiResponse(200, user?.[0]?.watchHistory || [], "Watch history fetched successfully"))
+
+})
 export {
-    registerUser, login, logout, refreshAccessToken, currentUserPassword, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage, getUserChannelProfile
+    registerUser, login, logout, refreshAccessToken, currentUserPassword, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage, getUserChannelProfile, getWatchHistory, changecurrentUserPassword
 }
